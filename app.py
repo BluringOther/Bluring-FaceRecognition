@@ -9,7 +9,6 @@ from mtcnn.mtcnn import MTCNN
 
 from Step import Step
 # byte[] -> img
-from skimage import io
 from io import BytesIO
 from PIL import Image,ImageFile#nparray->pil_image
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -26,6 +25,7 @@ app = Flask(__name__)
 net = MTCNN()
 thresh = 0.38
 
+#############################[step 0]#########################################
 @app.route('/api2/detectFace',methods=['POST'])
 def preRound(): # 블러 처리 제외할 사람 사진 등록시 수행
    data = request.get_json()
@@ -38,7 +38,6 @@ def preRound(): # 블러 처리 제외할 사람 사진 등록시 수행
 
 
 #############################[step 1]#########################################
-# input_data(BlurRequest.java); {'originalPhoto':"값", 'exPhotos':["값1","값2",...]}
 def makeFileToPredict(base64Img):
    Img_bytes=base64.b64decode(base64Img)
    pil_image = Image.open(BytesIO(Img_bytes)) # bytes-> pill
@@ -66,7 +65,7 @@ def log_score(res):
    print(res)
 
 
-
+# input_data(BlurRequest.java); {'originalPhoto':"값", 'exPhotos':["값1","값2",...]}
 @app.route('/api2/blur/step-1', methods=['POST'])
 def predict():
 
@@ -101,10 +100,10 @@ def predict():
       croppedImg_ndarray = cv2.resize(croppedImg_ndarray,(224, 224))
       croppedImg_ndarray = croppedImg_ndarray.reshape(1,224,224,3)
       face_pred=model.predict(croppedImg_ndarray)
-      for m_croppedImg_ndarray in m_file_to_predict_list:#블러 처리 제외할 사람만큼 _ 이부분 로직 변경->
+      for m_croppedImg_ndarray in m_file_to_predict_list:
          m_croppedImg_ndarray = cv2.resize(m_croppedImg_ndarray,(224, 224))
          m_croppedImg_ndarray = m_croppedImg_ndarray.reshape(1,224,224,3)
-         m_face_pred=model.predict(m_croppedImg_ndarray) #------ Predict도 미리 저장
+         m_face_pred=model.predict(m_croppedImg_ndarray) 
          score=cosine(m_face_pred,face_pred)
          log_score('원본'+str(i)+'블러제외'+": "+str(score))
          if score<thresh:# 블러 처리
@@ -147,7 +146,6 @@ def predict2():
    for i,faceInfo in enumerate(data['faceInfo']): # 얼굴 인식된 갯수만큼 for문 돌기
       if faceInfo['blurred'] == True: # 블러처리
          #블러처리 코드 
-         # faceInfo에서 인식된 얼굴의 위치 대신에, faceInfo에 맞는 원본사진의 위치를 넣어야 함
          roi=file_to_predict[faceInfo['face_location']['bottom']:faceInfo['face_location']['top'], faceInfo['face_location']['left']:faceInfo['face_location']['right']] # 관심영역 지정
          roi=cv2.blur(roi, (ksize, ksize)) # 블러처리
          file_to_predict[faceInfo['face_location']['bottom']:faceInfo['face_location']['top'], faceInfo['face_location']['left']:faceInfo['face_location']['right']] = roi # 원본 이미지에 적용
@@ -156,7 +154,7 @@ def predict2():
 
 
    
-   # 이곳에서 최종결과 얻기############코드 추가############
+   # 이곳에서 최종결과 얻기
    file_to_predict = cv2.cvtColor(file_to_predict, cv2.COLOR_BGR2RGB) #색 원상복구
    blurredImg_pill=Image.fromarray(file_to_predict) # ndarray->pil_img
       
@@ -171,7 +169,11 @@ def predict2():
    base64_BlurredImg = blurredImg_base64.decode("utf-8") # b64decode(b64encode(bytes),"utf-8")
    
 
-
    result = {"faceInfo": [],"originalPhoto":base64_OriginImg,"blurredPhoto":base64_BlurredImg,"step":Step.DONE} # face_count는 없어도 됨. faceInfo 길이로 알 수 있음||대신에 단계 나타내는 데이터 추가바람
    return jsonify(result)
 
+
+
+if __name__ == "__main__":
+   app.debug = True
+   app.run()
