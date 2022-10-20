@@ -1,68 +1,46 @@
 from flask import Flask, request, jsonify
-from tensorflow.keras.applications import ResNet50
 
-import cv2 #To Convert MTCNN Image Input Type
-
-import numpy as np
 from scipy.spatial.distance import cosine
-from mtcnn.mtcnn import MTCNN
-
-from Step import Step
-# byte[] -> img
+from PIL import Image,ImageFile #nparray->pil_image
 from io import BytesIO
-from PIL import Image,ImageFile#nparray->pil_image
+import base64
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-import base64
-
-#import imghdr # check file extensions
-
-global model
-model= ResNet50()
-
-
 app = Flask(__name__)
-net = MTCNN()
-thresh = 0.38
 
+#!pip install deepface
+from basemodels import Facenet
+import functions
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+
+model = Facenet.loadModel()
+thresh = 0.38
+try:
+	input_shape = model.layers[0].input_shape[1:3]
+except: #issue 470
+	input_shape = model.layers[0].input_shape[0][1:3]
 #############################[step 0]#########################################
 @app.route('/api2/detectFace',methods=['POST'])
 def preRound(): # 블러 처리 제외할 사람 사진 등록시 수행
    data = request.get_json()
-   base64_MemberImg=data['photo']
-   img_extension,file_to_predict,dets,face_count=detectFace(base64_MemberImg)
+   base64_MemberImg=data['photo'] #json에서 ndarray 불가. detect_face 안에서 파라미터를 b64로 바꾸고 코드 첫줄에 ndarray로 decode. loadBase64Img 호출 수정
+   file_to_predict,dets = functions.detect_face(base64_MemberImg) #detect된 얼굴이랑 위치정보 저장. output:ndarray
    box_m=dets[0]['box']
-   croppedImg_ndarray = file_to_predict[box_m[1]:box_m[1]+box_m[3], box_m[0]:box_m[0]+box_m[2]]
-   face_rgb=makeImgForResult(croppedImg_ndarray,img_extension)
+   croppedImg_ndarray = file_to_predict[box_m[1]:box_m[1]+box_m[3], box_m[0]:box_m[0]+box_m[2]] #Colab에서 돌려봤을때 뒤에 두개 왜 같은 값?
+   face_rgb=makeImgForResult(croppedImg_ndarray) #ndarray->base64
    return jsonify({'photo':face_rgb})
 
-
 #############################[step 1]#########################################
-def makeFileToPredict(base64Img):
-   Img_bytes=base64.b64decode(base64Img)
-   pil_image = Image.open(BytesIO(Img_bytes)) # bytes-> pill
-   file_to_predict = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR) # pil->ndarray
-   pil_image.close()
-   return file_to_predict
-
-def detectFace(base64Img):
-   img_extension="jpeg" # jpeg 확장자 확인
-   file_to_predict=makeFileToPredict(base64Img)
-   dets = net.detect_faces(file_to_predict)  # 괄호 안에 file_to_predict
-   face_count = len(dets) # originalPhoto에서 찾은 얼굴
-   return img_extension,file_to_predict,dets,face_count
-
-def makeImgForResult(Img_ndarray,img_extension):
-   Img_pill_rgb=Image.fromarray(cv2.cvtColor(Img_ndarray, cv2.COLOR_BGR2RGB)) # ndarray->pil_img
-   Img_byteArr_rgb = BytesIO()
-   Img_pill_rgb.save(Img_byteArr_rgb,format=img_extension)#,format="PNG,JPEG"
-   Img_bytes_rgb = Img_byteArr_rgb.getvalue()
-   Img_base64_rgb=base64.b64encode(Img_bytes_rgb) # pil_img -> b64encode(bytes)
-   face_rgb = Img_base64_rgb.decode("utf-8") 
-   return face_rgb
-
-def log_score(res):
-   print(res)
+def makeImgForResult(Img_ndarray,img_extension): # b64로 encode 해주는건 functions에 없어서 이거 사용 #이 함수는 별로 블러여부 고르는 사진
+    Img_pill_rgb=Image.fromarray(cv2.cvtColor(Img_ndarray, cv2.COLOR_BGR2RGB)) # ndarray->pil_img
+    Img_byteArr_rgb = BytesIO()
+    Img_pill_rgb.save(Img_byteArr_rgb,format=img_extension)#,format="PNG,JPEG" # img_extension 사용 안함
+    Img_bytes_rgb = Img_byteArr_rgb.getvalue()
+    Img_base64_rgb=base64.b64encode(Img_bytes_rgb) # pil_img -> b64encode(bytes)
+    face_rgb = Img_base64_rgb.decode("utf-8") 
+    return face_rgb
 
 
 # input_data(BlurRequest.java); {'originalPhoto':"값", 'exPhotos':["값1","값2",...]}
@@ -75,37 +53,37 @@ def predict():
 
    #####작업사진 전처리#####
    data = request.get_json()
-   base64_OriginImg=data['originalPhoto']
-   img_extension,file_to_predict,dets,face_count=detectFace(base64_OriginImg)
-
+   
+   base64_OriginImg=data['originalPhoto'] # 여기에서 base64_OriginImg의 형식은 base64
+   file_to_predict,dets=functions.preprocess_face(base64_OriginImg) # 두개로 나눠받지 말고 한 리스트에 받을까
+   #file_to_predict_list=functions.preprocess_face(base64_OriginImg)
+   #file_to_predict,dets=functions.detect_face(base64_OriginImg) #여기 detect 바꿈 
+   
    ####등록사진 전처리 ####
    base64_MembersImg=data['exPhotos'] # 그룹/사용자 얼굴(list)
-   m_file_to_predict_list=[]#예측할파일리스트
-   for base64_MemberImg in base64_MembersImg:
-      m_file_to_predict_list.append(makeFileToPredict(base64_MemberImg))
+   
+   #file_to_predict_mem,dets_mem=functions.preprocess_face(base64_MembersImg)
 
    result = {"faceInfo": [],"originalPhoto":base64_OriginImg,"blurredPhoto":base64_OriginImg,"step":Step.EDIT} # face_count는 없어도 됨. faceInfo 길이로 알 수 있음||대신에 단계 나타내는 데이터 추가바람
 
-   print("original Detected Face : ",face_count)
-
-   for i in range(0, face_count):# crop한 결과 
+   for i in range(0, len(dets)):# crop한 결과 
       ###### [1] face_crop : 원본사진중 인식된 얼굴 
       box = dets[i]['box']
-      croppedImg_ndarray=file_to_predict[box[1]:box[1]+box[3], box[0]:box[0]+box[2]]
-      face_rgb=makeImgForResult(croppedImg_ndarray,img_extension)
+      croppedImg_ndarray=file_to_predict[box[1]:box[1]+box[3], box[0]:box[0]+box[2]] # 형식에 맞게 변경
+      face_rgb=makeImgForResult(croppedImg_ndarray,"jpeg")
 
       ###### [2] blurred : 원본사진중 인식된 얼굴에 사용자가 블러 처리 제외할 얼굴이 있다면, False
       blurred=True
       #사진에서 cropped 얼굴 predict
-      croppedImg_ndarray = cv2.resize(croppedImg_ndarray,(224, 224))
-      croppedImg_ndarray = croppedImg_ndarray.reshape(1,224,224,3)
-      face_pred=model.predict(croppedImg_ndarray)
-      for m_croppedImg_ndarray in m_file_to_predict_list:
-         m_croppedImg_ndarray = cv2.resize(m_croppedImg_ndarray,(224, 224))
-         m_croppedImg_ndarray = m_croppedImg_ndarray.reshape(1,224,224,3)
-         m_face_pred=model.predict(m_croppedImg_ndarray) 
+      #face_pred=model.predict(croppedImg_ndarray)
+      face_pred = model.predict(croppedImg_ndarray) # file_to_predict랑 croppedImg_ndarray중 뭐가 들어가야 할까
+      
+      for m_croppedImg_ndarray in base64_MembersImg:
+         #m_croppedImg_ndarray=m_file_to_predict[box[1]:box[1]+box[3], box[0]:box[0]+box[2]] # 형식에 맞게 변경
+         m_file_to_predict=functions.preprocess_face(m_croppedImg_ndarray)
+         m_face_pred=model.predict(m_file_to_predict)[0,:]
          score=cosine(m_face_pred,face_pred)
-         log_score('원본'+str(i)+'블러제외'+": "+str(score))
+         #log_score('원본'+str(i)+'블러제외'+": "+str(score))
          if score<thresh:# 블러 처리
             blurred=False
       
@@ -121,6 +99,7 @@ def predict():
          })
    
    return jsonify(result)
+
 
 #############################[step 2]#########################################
 # input_data(BlurResponse.java); {"faceInfo": [],"originalPhoto":base64_OriginImg,"blurredPhoto":base64_OriginImg,"step":Step.DONE} 
