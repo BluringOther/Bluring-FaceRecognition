@@ -8,7 +8,7 @@ License List
 4. [IMDb-Face](https://github.com/fwang91/IMDb-Face)
 ---------------------------------------------------
 # 1. [LFW](http://vis-www.cs.umass.edu/lfw)
-    This project is licensed under the terms of the **GNU Lesser General Public License v2.1**.
+This project is licensed under the terms of the **GNU Lesser General Public License v2.1**.
 # 2. [KID-F](https://www.kaggle.com/datasets/vkehfdl1/kidf-kpop-idol-dataset-female)
 - The use of this software is RESTRICTED to non-commercial research and educational purposes.
 - All images of the KID-F dataset are obtained from the internet which are not property of EDA(PCEO-AI-CLUB). EDA is not responsible for the content nor the meaning of these images.
