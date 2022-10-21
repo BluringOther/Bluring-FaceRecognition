@@ -3,7 +3,7 @@
 License List
 ============
 1. [LFW](https://github.com/BluringOther/Bluring-FaceRecognition/blob/master/README.md#1-lfw)
-2. [KID-F](https://www.kaggle.com/datasets/vkehfdl1/kidf-kpop-idol-dataset-female)
+2. [KID-F](https://github.com/BluringOther/Bluring-FaceRecognition/blob/master/README.md#2-kid-f)
 3. [Pins Face Recognition](https://www.kaggle.com/datasets/hereisburak/pins-face-recognition)
 4. [IMDb-Face](https://github.com/fwang91/IMDb-Face)
 ---------------------------------------------------
