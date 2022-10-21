@@ -1,6 +1,7 @@
 # Bluring-FaceRecognition
 
 |이름|라이선스|특징|데이터 구축량|URL|
+|----|-------|----|------------|---|
 |LFW|GNU Lesser General Public License|http://www.gnu.org/licenses/lgpl-3.0.html, collected from the web|more than 13,000 images, 1680
  of the people pictured have two or more distinct photos|http://vis-www.cs.umass.edu/lfw|
 |KID-F|Other(specified in description)|한국 여자 연예인 사진|test data(300장, 166개의 identities), train data(5591장, 3066개의 identities)|https://www.kaggle.com/datasets/vkehfdl1/kidf-kpop-idol-dataset-female|
