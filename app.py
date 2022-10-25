@@ -22,7 +22,7 @@ global model
 model = Facenet.loadModel()
 net = MTCNN()
 
-thresh = 0.13
+thresh = 8.8
 '''
 try:
    input_shape = model.layers[0].input_shape[1:3]
@@ -102,9 +102,10 @@ def predict():
       for m_croppedImg_ndarray in m_file_to_predict_list:
          m_croppedImg_ndarray = functions.preprocess_face(m_croppedImg_ndarray, target_size=(160, 160), detector_backend='mtcnn') 
          m_face_pred = model.predict(m_croppedImg_ndarray)[0,:]
-         score=cosine(m_face_pred, face_pred)
-         #log_score('원본'+str(i)+'블러제외'+": "+str(score))
-         if score<thresh:# 블러 처리
+         distance_vector = np.square(m_face_pred - face_pred)
+         distance = np.sqrt(distance_vector.sum())
+         #log_score('원본'+str(i)+'블러제외'+": "+str(distance))
+         if distance<thresh:# 블러 처리
             blurred=False
       
       result['faceInfo'].append(
