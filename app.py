@@ -22,7 +22,7 @@ global model
 model = Facenet.loadModel()
 net = MTCNN()
 
-thresh = 8.8
+thresh = 8.8 
 '''
 try:
    input_shape = model.layers[0].input_shape[1:3]
@@ -35,7 +35,7 @@ except: #issue 470
 def preRound(): # 블러 처리 제외할 사람 사진 등록시 수행
    data = request.get_json() #b64 이미지 파일 1개 받아옴
    base64_MemberImg=data['photo']
-   nd_MemberImg=loadBase64Img(base64_MemberImg) 
+   nd_MemberImg=loadBase64Img(base64_MemberImg) #b64 이미지를 np.array로 변환하여 저장 #makeFileToPredict 함수를 loadBase64 함수로 변경
    #file_to_predict,dets = functions.detect_face(nd_MemberImg,'mtcnn') #detect된 얼굴이랑 위치정보 저장. output:ndarray
    dets = net.detect_faces(nd_MemberImg)  # 괄호 안에 file_to_predict
    
@@ -56,10 +56,10 @@ def makeFileToPredict(base64Img):
    pil_image.close()
    return file_to_predict
 
-def makeImgForResult(Img_ndarray,img_extension): 
+def makeImgForResult(Img_ndarray,img_extension): # b64로 encode 해주는건 functions에 없어서 이거 사용
     Img_pill_rgb=Image.fromarray(cv2.cvtColor(Img_ndarray, cv2.COLOR_BGR2RGB)) # ndarray->pil_img
     Img_byteArr_rgb = BytesIO()
-    Img_pill_rgb.save(Img_byteArr_rgb,format=img_extension)#,format="PNG,JPEG" 
+    Img_pill_rgb.save(Img_byteArr_rgb,format=img_extension)#,format="PNG,JPEG" # img_extension 사용 안함
     Img_bytes_rgb = Img_byteArr_rgb.getvalue()
     Img_base64_rgb=base64.b64encode(Img_bytes_rgb) # pil_img -> b64encode(bytes)
     face_rgb = Img_base64_rgb.decode("utf-8") 
@@ -76,9 +76,9 @@ def predict():
    #####작업사진 전처리#####
    data = request.get_json()
    
-   base64_OriginImg=data['originalPhoto'] 
+   base64_OriginImg=data['originalPhoto'] # 여기에서 base64_OriginImg의 형식은 base64
    nd_OriginImg=loadBase64Img(base64_OriginImg) #base64->ndarray
-   o_dets = net.detect_faces(nd_OriginImg)
+   o_dets = net.detect_faces(nd_OriginImg)  # 괄호 안에 file_to_predict
    face_count = len(o_dets) # originalPhoto에서 찾은 얼굴
    #detected_face = functions.detect_face(base64_OriginImg, detector_backend = 'mtcnn')
    
@@ -98,15 +98,22 @@ def predict():
       ###### [2] blurred : 원본사진중 인식된 얼굴에 사용자가 블러 처리 제외할 얼굴이 있다면, False
       blurred=True
       croppedImg_ndarray = functions.preprocess_face(croppedImg_ndarray, target_size=(160, 160), detector_backend='mtcnn')
+      #predict 값이 이상하게 찍히면 functions.preprocess_face 대신에 resize, reshape 해보기
       face_pred = model.predict(croppedImg_ndarray)[0,:]
       for m_croppedImg_ndarray in m_file_to_predict_list:
          m_croppedImg_ndarray = functions.preprocess_face(m_croppedImg_ndarray, target_size=(160, 160), detector_backend='mtcnn') 
          m_face_pred = model.predict(m_croppedImg_ndarray)[0,:]
          distance_vector = np.square(m_face_pred - face_pred)
+         #score=cosine(m_face_pred, face_pred)
+         #print(distance_vector)
          distance = np.sqrt(distance_vector.sum())
-         #log_score('원본'+str(i)+'블러제외'+": "+str(distance))
-         if distance<thresh:# 블러 처리
-            blurred=False
+         print(distance)
+         
+         #===============================여기까지 테스트 완료
+         #log_score('원본'+str(i)+'블러제외'+": "+str(score))
+         if distance < thresh:# 블러 처리
+            blurred=False # 블러 제외
+         print(blurred)
       
       result['faceInfo'].append(
          {'face_crop': Orgface_rgb, # 원본 사진에서의 인식된 얼굴 #face_rgb->Orgface_rgb
