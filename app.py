@@ -1,9 +1,8 @@
 from flask import Flask, request, jsonify
 import cv2
 import numpy as np
-#from scipy.spatial.distance import cosine
 
-from PIL import ImageFile #nparray->pil_image
+from PIL import ImageFile 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
@@ -21,7 +20,7 @@ thresh = 8.7
 DETECTOR_BACKEND='mtcnn'
 
 
-#############################[step 0]#########################################
+# [step 0]
 @app.route('/api2/detectFace',methods=['POST'])
 def preRound(): # 블러 처리 제외할 사람 사진 등록시 수행
    data = request.get_json()
@@ -31,7 +30,7 @@ def preRound(): # 블러 처리 제외할 사람 사진 등록시 수행
    face_rgb=blursome.makeImgForResult(det_croppedface, "jpeg") #ndarray->base64
    return jsonify({'photo':face_rgb}) 
 
-#############################[step 1]#########################################
+# [step 1]
 @app.route('/api2/blur/step-1', methods=['POST'])# {'originalPhoto':"값", 'exPhotos':["값1","값2",...]}
 def predict():
 
@@ -39,7 +38,6 @@ def predict():
    if (content_type != 'application/json'):
       return jsonify({"err":"not json"})  
 
-   #####작업사진 전처리#####
    data = request.get_json()
    
    result = {"faceInfo": [],"originalPhoto":data['originalPhoto'],"blurredPhoto":data['originalPhoto']} 
@@ -47,12 +45,12 @@ def predict():
    originImg=blursome.loadBase64Img(data['originalPhoto']) 
    origin_croppedfaces_regions=FaceDetector.detect_faces(FaceDetector.build_model(detector_backend=DETECTOR_BACKEND),detector_backend=DETECTOR_BACKEND,img=originImg, align=True)#[(face,region),(face,region)...]
    
-   ####등록사진 전처리 #### # 이미 detect하고 crop된 이미지들임.
-   member_croppedfaces=blursome.loadBase64Imgs(data['exPhotos'])#[]#예측할파일리스트
+   # 등록사진 전처리 
+   member_croppedfaces=blursome.loadBase64Imgs(data['exPhotos'])# 예측할파일리스트
 
    for origin_det_croppedface,origin_det_region in origin_croppedfaces_regions:
       blurred=True
-      ###### [2] blurred : 원본사진중 인식된 얼굴에 사용자가 블러 처리 제외할 얼굴이 있다면, False
+      # 원본사진중 인식된 얼굴에 사용자가 블러 처리 제외할 얼굴이 있다면, False
       model_origin_croppedface = blursome.prepredict(origin_det_croppedface, target_size=functions.find_input_shape(model), grayscale = False, enforce_detection = True)# predict전에 preprocess해야 해서
       face_pred = model.predict(model_origin_croppedface)[0,:]
 
@@ -61,12 +59,9 @@ def predict():
          m_face_pred = model.predict(model_member_croppedface)[0,:]
          
          distance_vector = np.square(m_face_pred - face_pred)
-         #score=cosine(m_face_pred, face_pred)
-         #print(distance_vector)
          distance = np.sqrt(distance_vector.sum())
          print(distance)
          
-         #log_score('원본'+str(i)+'블러제외'+": "+str(score))
          if distance < thresh:# 블러 처리
             blurred=False # 블러 제외
          print(blurred)
@@ -85,7 +80,7 @@ def predict():
    return jsonify(result)
 
 
-#############################[step 2]#########################################
+# [step 2]
 # input_data(BlurResponse.java); {"originalPhoto":base64_OriginImg,"blurredPhoto":base64_OriginImg} 
 @app.route('/api2/blur/step-2', methods=['POST'])
 def predict2():
@@ -101,7 +96,6 @@ def predict2():
    ksize=30 # 블러 처리에 사용할 커널 크기
    for faceInfo in data['faceInfo']: # 얼굴 인식된 갯수
       if faceInfo['blurred'] == True: # 블러처리
-         #블러처리 코드 
          roi=photo[faceInfo['face_location']['bottom']:faceInfo['face_location']['top'], faceInfo['face_location']['left']:faceInfo['face_location']['right']] # 관심영역 지정
          roi=cv2.blur(roi, (ksize, ksize)) 
          photo[faceInfo['face_location']['bottom']:faceInfo['face_location']['top'], faceInfo['face_location']['left']:faceInfo['face_location']['right']] = roi # 원본 이미지에 적용
